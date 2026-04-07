@@ -1,24 +1,42 @@
-# A Chrome extension to automate content downloads
+# Perlego Download Tool (Automated Edition)
 
-# An active account is required.
+A Chrome extension to automate content downloads from the Perlego e-reader. An active account is required.
 
--  **To install this extension in chrome please follow the steps indicated [here](https://dev.to/ben/how-to-install-chrome-extensions-manually-from-github-1612).**
+## 🚀 Installation
+1. Download the repository files.
+2. Open Chrome and navigate to `chrome://extensions`.
+3. Enable **Developer mode** (top right toggle).
+4. Click **Load unpacked** and select the folder containing these files.
 
-After finishing the script, a ".html" file is generated in which it is possible to print in PDF
+## 📖 How to Use
+1. Access your book at `https://ereader.perlego.com/1/book/(ID)`.
+2. Open the extension popup.
+3. **For ePUBs:** Click **ePUB (auto)**.
+4. **For PDFs:** Click **PDF (manual)**. 
+   * *Note: While the button is labeled manual, it now triggers a fully automated scrolling script.*
+5. A status bar will appear at the top of the page. The script will automatically scroll, wait for images to load, and save pages to the database.
+6. When finished (or to stop early), click **Stop & Save HTML**.
 
-In the PDF version, as it does not scroll automatically, I suggest pressing the scroll button and moving the mouse down slightly, or pressing the "Page Down" button to speed up the process.
+## ✨ Key Automated Features
+- **Auto-Scrolling:** No more manual scrolling or "Page Down" needed. The script moves through the PDF automatically.
+- **Lazy-Load Detection:** The script detects Perlego's "loading" placeholders and high-res image status. It will wait until a page is perfect before capturing it.
+- **Anti-Bot Jitter:** Uses randomized delays (2.5s – 4.5s) to mimic human reading patterns, reducing the risk of being flagged as a bot.
+- **Continuity Mode:** If the browser tab crashes or freezes on a large book, simply refresh the page (F5) and click the button again. It will skip already-captured pages and resume where it left off.
 
-It is very important to go to the end of the page of the saved .html file if you are going to print PDF, as very large files will not load completely until they reach the end of the page. ePUB books can be translated into other languages directly in the .html file
+## 📄 Saving as PDF (Offline Use)
+The extension generates an `.html` file. To ensure images don't expire and to read offline:
+1. Open the generated `.html` file in a browser.
+2. **Important:** Scroll to the very bottom of the page once to ensure all images are rendered in the browser cache.
+3. Press **Ctrl + P**.
+4. Select **Save as PDF**.
+5. *Pro Tip:* If the file is extremely large, use **Firefox** to open the HTML and print, as it handles memory better than Chrome.
 
-If the file is so large that the browser cannot process it, you can edit the .html and cut it into parts to split the process, or use another browser to open the .html, I recommend Firefox which uses less memory.
+## 🛠️ Maintenance & Reset
+If you want to start a book from the beginning or clear the saved progress, use the **Clear Continuity** button in the popup before starting a new capture.
 
-> # New function to continue where you left off:
-Now you can reload the page if it's stuck, then just click again to start and continue where you left off, and just below there is a button to reset this continuity if necessary.
+---
+*Read the description of each format in the extension UI to avoid browser crashes.*
 
-> # To use offline:
-It is very important to convert the .html to PDF otherwise it will not be possible to use it offline and also the images have an expiration date, so it is necessary to convert to PDF, if you don't know how to do this, just press "Ctrl + P" with the open .html file and select "Save as PDF"
-
-# *Read the description of each format to avoid browser crashes*
 <p align="start">
 <img src="https://github.com/GladistonXD/perlego-download/assets/50533550/bfed5fbc-2122-4ab8-b948-e64619ad9b7d" alt="Description" width="50%" height="50%"/>
 </p>
