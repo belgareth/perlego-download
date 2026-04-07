@@ -107,4 +107,101 @@
             });
 
             // The main automated loop
-            async function rolarEProcessar(pagina)
+            async function rolarEProcessar(pagina) {
+                if (stopSearch || (pagefinal > 0 && pagina > pagefinal)) {
+                    if (pagefinal > 0 && pagina > pagefinal) stopButton.click();
+                    return;
+                }
+
+                const db = await openIndexedDB();
+                const lastProcessed = await getLastProcessedIndex(db);
+
+                // Skip if already in database (Continuity feature)
+                if (pagina <= lastProcessed) {
+                    return rolarEProcessar(pagina + 1);
+                }
+
+                const conteudo = await procurarElementoEAutoRolar(pagina);
+                const msg = document.getElementById('mensagem');
+
+                if (!conteudo) {
+                    if (msg) msg.textContent = `Auto-Scrolling: Page ${pagina}/${pagefinal} loading...`;
+                    // Retry after 3 seconds as in your original snippet
+                    setTimeout(() => rolarEProcessar(pagina), 3000);
+                } else {
+                    if (msg) msg.textContent = `Captured Page ${pagina}/${pagefinal}`;
+                    
+                    const progresso = Math.floor((pagina / pagefinal) * 100);
+                    enviarProgresso(progresso);
+
+                    // Save each page to IndexedDB to keep memory usage low
+                    const key = `p${pagina.toString().padStart(5, '0')}`;
+                    await putTodoConteudo(db, key, [conteudo]);
+                    await putLastProcessedIndex(db, pagina);
+
+                    // Delay before next page to prevent browser hang
+                    setTimeout(() => rolarEProcessar(pagina + 1), 1000);
+                }
+            }
+
+            rolarEProcessar(1);
+        } catch (error) {
+            console.error("Automation error:", error);
+        }
+    }
+
+    // --- Database Helpers (Preserving original IndexedDB logic) ---
+
+    async function openIndexedDB() {
+        return new Promise((resolve, reject) => {
+            const request = window.indexedDB.open('MeuBancoDeDados', 1);
+            request.onupgradeneeded = (e) => e.target.result.createObjectStore('conteudo');
+            request.onsuccess = (e) => resolve(e.target.result);
+            request.onerror = (e) => reject(e.error);
+        });
+    }
+
+    async function putTodoConteudo(db, key, content) {
+        return new Promise((resolve) => {
+            const trans = db.transaction(['conteudo'], 'readwrite');
+            trans.objectStore('conteudo').put(content, key);
+            trans.oncomplete = () => resolve();
+        });
+    }
+
+    async function getTodoConteudoByKey(db, key) {
+        return new Promise((resolve) => {
+            const request = db.transaction(['conteudo'], 'readonly').objectStore('conteudo').get(key);
+            request.onsuccess = (e) => resolve(e.target.result);
+        });
+    }
+
+    async function getAllKeys(db) {
+        return new Promise((resolve) => {
+            const request = db.transaction(['conteudo'], 'readonly').objectStore('conteudo').getAllKeys();
+            request.onsuccess = (e) => resolve(e.target.result.sort());
+        });
+    }
+
+    async function getLastProcessedIndex(db) {
+        return new Promise((resolve) => {
+            const request = db.transaction(['conteudo'], 'readonly').objectStore('conteudo').get('lastProcessedIndex');
+            request.onsuccess = (e) => resolve(e.target.result || 0);
+        });
+    }
+
+    async function putLastProcessedIndex(db, index) {
+        return new Promise((resolve) => {
+            const trans = db.transaction(['conteudo'], 'readwrite');
+            trans.objectStore('conteudo').put(index, 'lastProcessedIndex');
+            trans.oncomplete = () => resolve();
+        });
+    }
+
+    async function clearIndexedDB() {
+        const db = await openIndexedDB();
+        db.transaction(['conteudo'], 'readwrite').objectStore('conteudo').clear();
+    }
+
+    startSearchingAndSaving();
+})();
