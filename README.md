@@ -34,15 +34,13 @@ The extension generates an `.html` file. To ensure images don't expire and to re
 ## 🛠️ Maintenance & Reset
 If you want to start a book from the beginning or clear the saved progress, use the **Clear Continuity** button in the popup before starting a new capture.
 
+## ☕ Support this Project
+If this tool helped you, consider supporting the development:
+[**Donate via PayPal**](https://www.paypal.com/donate/?hosted_button_id=USR242HKMCFG2)
+
 ---
 *Read the description of each format in the extension UI to avoid browser crashes.*
 
 <p align="start">
 <img src="https://github.com/GladistonXD/perlego-download/assets/50533550/bfed5fbc-2122-4ab8-b948-e64619ad9b7d" alt="Description" width="50%" height="50%"/>
 </p>
-
-*After accessing the book normally via: `https://ereader.perlego.com/1/book/(ID*)` you can start the automation.*
-
->*There are no guarantees of functionality, feel free to take this code and use it as you see fit, there will probably be no updates as I am in the 7 day free period, some books may have specific bugs because I didn't have time to test all the possibilities.*
-
-[<img src="https://github.com/user-attachments/assets/d8c9ad65-1188-4f4a-9cd5-433f5e8de31f" width="250" alt="Donate with PayPal">](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=8BGXZC3GHQBL2)
