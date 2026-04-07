@@ -94,6 +94,8 @@
             if (matches) totalPages = parseInt(matches[0]);
         }
 
+        let retryCount = 0; // Track how many times we've waited for a single page
+
         async function processLoop(currentPage) {
             if (stopSearch || (totalPages > 0 && currentPage > totalPages)) {
                 if (currentPage > totalPages) document.getElementById('stop-btn').click();
@@ -112,15 +114,26 @@
             const statusLabel = document.getElementById('status-text');
 
             if (!html) {
-                if (statusLabel) statusLabel.textContent = `Waiting for Page ${currentPage}... (Lazy Loading)`;
+                retryCount++; // Increment our fail counter
+                
+                // If it fails 15 times (~45 seconds of waiting), force stop to save data
+                if (retryCount > 15) {
+                    console.error(`Page ${currentPage} failed to load after 15 attempts. Auto-saving...`);
+                    document.getElementById('stop-btn').click();
+                    return;
+                }
+
+                if (statusLabel) statusLabel.textContent = `Waiting for Page ${currentPage}... (Attempt ${retryCount}/15)`;
                 // Retry with Jitter (Anti-Bot)
                 setTimeout(() => processLoop(currentPage), getJitterDelay(2500, 4000));
             } else {
+                retryCount = 0; // Reset counter on success
+                
                 if (statusLabel) statusLabel.textContent = `Captured Page ${currentPage} of ${totalPages || '?'}`;
                 
-                // Save to DB
+                // Save to DB directly as a string (Removed the [] brackets)
                 const key = `page_${currentPage.toString().padStart(5, '0')}`;
-                await putTodoConteudo(db, key, [html]);
+                await putTodoConteudo(db, key, html); 
                 await putLastProcessedIndex(db, currentPage);
                 
                 if (totalPages > 0) enviarProgresso(Math.floor((currentPage / totalPages) * 100));
