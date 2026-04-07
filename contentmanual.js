@@ -1,42 +1,48 @@
 (function() {
     let stopSearch = false;
 
+    // Helper: Generates a random delay to mimic human behavior (Anti-Bot)
+    function getJitterDelay(min, max) {
+        return Math.floor(Math.random() * (max - min + 1) + min);
+    }
+
     function enviarProgresso(progress) {
         chrome.runtime.sendMessage({ type: 'progressUpdate', progress: progress });
     }
 
-    // This function implements your scrolling logic and checks if the page is fully loaded
+    // Core Logic: Finds the element, scrolls to it, and verifies it is fully loaded
     async function procurarElementoEAutoRolar(pagina) {
-        // First try the selector you provided for your specific book
+        // Try the selector from your successful console test
         let content = document.querySelector(`div[data-chapterid='${pagina}']`);
         
-        // Fallback to the original extension's ID format if the chapterid isn't found
+        // Fallback to original ID format if needed
         if (!content) {
             content = document.getElementById(`p${pagina}--0`);
         }
 
         if (!content) {
-            console.warn(`Page ${pagina} not in DOM yet... Scrolling to trigger lazy load.`);
+            console.warn(`Page ${pagina} not in DOM. Scrolling to bottom to trigger load...`);
             window.scrollTo(0, document.body.scrollHeight); 
             return null;
         }
 
-        // Auto-scroll logic from your snippet
+        // Automated scrolling
         content.scrollIntoView({
             behavior: "smooth",
             block: "start"
         });
 
-        // Check for "Lazy Loading" states (the .pdfplaceholder and image status)
+        // Verify the page is actually rendered (not a grey box/placeholder)
         let images = content.querySelectorAll("img");
         let imagesLoaded = Array.from(images).every(img => img.complete);
         let hasPlaceholder = content.querySelector(".pdfplaceholder");
 
         if (hasPlaceholder || !imagesLoaded) {
-            console.log(`Waiting for page ${pagina} to fully load...`);
+            console.log(`Page ${pagina} is still loading pixels... waiting.`);
             return null; 
         }
 
+        // Return the clean HTML content
         return content.innerHTML + '<br>' + '\n';
     }
 
@@ -46,162 +52,133 @@
         link.href = URL.createObjectURL(blob);
         link.download = nomeArquivo;
         link.click();
-        clearIndexedDB();
+        // We do NOT clear DB here automatically so you can keep the data if download fails
     }
 
-    async function exibirMensagemInicial(pagefinal) {
-        const mensagemElement = document.createElement('div');
-        mensagemElement.style.position = 'fixed';
-        mensagemElement.style.top = '10%'; 
-        mensagemElement.style.left = '50%';
-        mensagemElement.style.transform = 'translate(-50%, -50%)';
-        mensagemElement.style.padding = '15px';
-        mensagemElement.style.background = '#ffffff';
-        mensagemElement.style.border = '2px solid #4caf50';
-        mensagemElement.style.zIndex = '10000';
-        mensagemElement.style.fontWeight = 'bold';
-        mensagemElement.id = 'mensagem';
-        document.body.appendChild(mensagemElement);
-        return mensagemElement;
+    function exibirStatusUI() {
+        const msg = document.createElement('div');
+        msg.id = 'automation-status';
+        msg.style = "position:fixed; top:20px; left:50%; transform:translateX(-50%); padding:15px; background:white; border:2px solid #4caf50; z-index:999999; font-family:sans-serif; box-shadow:0 4px 15px rgba(0,0,0,0.2); border-radius:8px;";
+        msg.innerHTML = `<div id="status-text">Starting Automation...</div>
+                         <button id="stop-btn" style="margin-top:10px; cursor:pointer; background:#f44336; color:white; border:none; padding:5px 10px; border-radius:4px;">Stop & Save HTML</button>`;
+        document.body.appendChild(msg);
+
+        document.getElementById('stop-btn').onclick = async () => {
+            stopSearch = true;
+            msg.textContent = "Compiling file... please wait.";
+            
+            const db = await openIndexedDB();
+            const allKeys = await getAllKeys(db);
+            let finalHTML = ["<!DOCTYPE html><html><head><style>img{max-width:100%; display:block; margin:20px auto;} body{font-family:sans-serif; background:#f0f0f0;}</style></head><body>"];
+
+            for (const key of allKeys) {
+                if (key === 'lastProcessedIndex') continue;
+                const data = await getTodoConteudoByKey(db, key);
+                if (data) finalHTML.push(data);
+            }
+            
+            finalHTML.push("</body></html>");
+            downloadResultados(finalHTML, `perlego_export_${Date.now()}.html`);
+            msg.remove();
+        };
     }
 
-    async function startSearchingAndSaving() {
-        try {
-            // Identify total pages from the UI
-            var elementoPaginacao = document.querySelector('div[data-test-locator="pagination-total-chapter-numbers"]');
-            var pagefinal = 0;
-            if (elementoPaginacao) {
-                var numeros = elementoPaginacao.textContent.match(/\d+/g);
-                if (numeros) pagefinal = parseInt(numeros[0]);
-            }
+    async function startAutomation() {
+        exibirStatusUI();
 
-            const mensagemInicial = await exibirMensagemInicial(pagefinal);
-
-            let stopButton = document.createElement('button');
-            stopButton.textContent = 'Stop and Save Progress';
-            stopButton.style.position = 'fixed';
-            stopButton.style.top = '15%';
-            stopButton.style.left = '50%';
-            stopButton.style.transform = 'translateX(-50%)';
-            stopButton.style.zIndex = '10001';
-            stopButton.style.padding = '10px';
-            document.body.appendChild(stopButton);
-
-            stopButton.addEventListener('click', async () => {
-                stopSearch = true;
-                stopButton.remove();
-                document.getElementById('mensagem')?.remove();
-                
-                const db = await openIndexedDB();
-                const allKeys = await getAllKeys(db);
-                let combinedContent = ["<!DOCTYPE html><html><head><style>img{max-width:100%;} body{font-family:sans-serif;}</style></head><body>"];
-
-                for (const key of allKeys) {
-                    if (key === 'lastProcessedIndex') continue;
-                    const content = await getTodoConteudoByKey(db, key);
-                    if (content) combinedContent.push(content);
-                }
-                
-                combinedContent.push("</body></html>");
-                await downloadResultados(combinedContent, 'perlego_book.html');
-            });
-
-            // The main automated loop
-            async function rolarEProcessar(pagina) {
-                if (stopSearch || (pagefinal > 0 && pagina > pagefinal)) {
-                    if (pagefinal > 0 && pagina > pagefinal) stopButton.click();
-                    return;
-                }
-
-                const db = await openIndexedDB();
-                const lastProcessed = await getLastProcessedIndex(db);
-
-                // Skip if already in database (Continuity feature)
-                if (pagina <= lastProcessed) {
-                    return rolarEProcessar(pagina + 1);
-                }
-
-                const conteudo = await procurarElementoEAutoRolar(pagina);
-                const msg = document.getElementById('mensagem');
-
-                if (!conteudo) {
-                    if (msg) msg.textContent = `Auto-Scrolling: Page ${pagina}/${pagefinal} loading...`;
-                    // Retry after 3 seconds as in your original snippet
-                    setTimeout(() => rolarEProcessar(pagina), 3000);
-                } else {
-                    if (msg) msg.textContent = `Captured Page ${pagina}/${pagefinal}`;
-                    
-                    const progresso = Math.floor((pagina / pagefinal) * 100);
-                    enviarProgresso(progresso);
-
-                    // Save each page to IndexedDB to keep memory usage low
-                    const key = `p${pagina.toString().padStart(5, '0')}`;
-                    await putTodoConteudo(db, key, [conteudo]);
-                    await putLastProcessedIndex(db, pagina);
-
-                    // Delay before next page to prevent browser hang
-                    setTimeout(() => rolarEProcessar(pagina + 1), 1000);
-                }
-            }
-
-            rolarEProcessar(1);
-        } catch (error) {
-            console.error("Automation error:", error);
+        // Detect total pages
+        let totalPages = 0;
+        const paginationEl = document.querySelector('div[data-test-locator="pagination-total-chapter-numbers"]');
+        if (paginationEl) {
+            const matches = paginationEl.textContent.match(/\d+/g);
+            if (matches) totalPages = parseInt(matches[0]);
         }
+
+        async function processLoop(currentPage) {
+            if (stopSearch || (totalPages > 0 && currentPage > totalPages)) {
+                if (currentPage > totalPages) document.getElementById('stop-btn').click();
+                return;
+            }
+
+            const db = await openIndexedDB();
+            const lastSaved = await getLastProcessedIndex(db);
+
+            // Skip pages already in IndexedDB (Continuity)
+            if (currentPage <= lastSaved) {
+                return processLoop(currentPage + 1);
+            }
+
+            const html = await procurarElementoEAutoRolar(currentPage);
+            const statusLabel = document.getElementById('status-text');
+
+            if (!html) {
+                if (statusLabel) statusLabel.textContent = `Waiting for Page ${currentPage}... (Lazy Loading)`;
+                // Retry with Jitter (Anti-Bot)
+                setTimeout(() => processLoop(currentPage), getJitterDelay(2500, 4000));
+            } else {
+                if (statusLabel) statusLabel.textContent = `Captured Page ${currentPage} of ${totalPages || '?'}`;
+                
+                // Save to DB
+                const key = `page_${currentPage.toString().padStart(5, '0')}`;
+                await putTodoConteudo(db, key, [html]);
+                await putLastProcessedIndex(db, currentPage);
+                
+                if (totalPages > 0) enviarProgresso(Math.floor((currentPage / totalPages) * 100));
+
+                // Move to next page with Jitter
+                setTimeout(() => processLoop(currentPage + 1), getJitterDelay(1000, 2500));
+            }
+        }
+
+        processLoop(1);
     }
 
-    // --- Database Helpers (Preserving original IndexedDB logic) ---
-
+    // --- Database Boilerplate (Same as your original system) ---
     async function openIndexedDB() {
-        return new Promise((resolve, reject) => {
-            const request = window.indexedDB.open('MeuBancoDeDados', 1);
-            request.onupgradeneeded = (e) => e.target.result.createObjectStore('conteudo');
-            request.onsuccess = (e) => resolve(e.target.result);
-            request.onerror = (e) => reject(e.error);
+        return new Promise((res, rej) => {
+            const req = indexedDB.open('MeuBancoDeDados', 1);
+            req.onupgradeneeded = (e) => e.target.result.createObjectStore('conteudo');
+            req.onsuccess = (e) => res(e.target.result);
+            req.onerror = (e) => rej(e.error);
         });
     }
 
     async function putTodoConteudo(db, key, content) {
-        return new Promise((resolve) => {
-            const trans = db.transaction(['conteudo'], 'readwrite');
-            trans.objectStore('conteudo').put(content, key);
-            trans.oncomplete = () => resolve();
+        return new Promise((res) => {
+            const tx = db.transaction(['conteudo'], 'readwrite');
+            tx.objectStore('conteudo').put(content, key);
+            tx.oncomplete = () => res();
         });
     }
 
     async function getTodoConteudoByKey(db, key) {
-        return new Promise((resolve) => {
-            const request = db.transaction(['conteudo'], 'readonly').objectStore('conteudo').get(key);
-            request.onsuccess = (e) => resolve(e.target.result);
+        return new Promise((res) => {
+            const req = db.transaction(['conteudo'], 'readonly').objectStore('conteudo').get(key);
+            req.onsuccess = (e) => res(e.target.result);
         });
     }
 
     async function getAllKeys(db) {
-        return new Promise((resolve) => {
-            const request = db.transaction(['conteudo'], 'readonly').objectStore('conteudo').getAllKeys();
-            request.onsuccess = (e) => resolve(e.target.result.sort());
+        return new Promise((res) => {
+            const req = db.transaction(['conteudo'], 'readonly').objectStore('conteudo').getAllKeys();
+            req.onsuccess = (e) => res(e.target.result.sort());
         });
     }
 
     async function getLastProcessedIndex(db) {
-        return new Promise((resolve) => {
-            const request = db.transaction(['conteudo'], 'readonly').objectStore('conteudo').get('lastProcessedIndex');
-            request.onsuccess = (e) => resolve(e.target.result || 0);
+        return new Promise((res) => {
+            const req = db.transaction(['conteudo'], 'readonly').objectStore('conteudo').get('lastProcessedIndex');
+            req.onsuccess = (e) => res(e.target.result || 0);
         });
     }
 
     async function putLastProcessedIndex(db, index) {
-        return new Promise((resolve) => {
-            const trans = db.transaction(['conteudo'], 'readwrite');
-            trans.objectStore('conteudo').put(index, 'lastProcessedIndex');
-            trans.oncomplete = () => resolve();
+        return new Promise((res) => {
+            const tx = db.transaction(['conteudo'], 'readwrite');
+            tx.objectStore('conteudo').put(index, 'lastProcessedIndex');
+            tx.oncomplete = () => res();
         });
     }
 
-    async function clearIndexedDB() {
-        const db = await openIndexedDB();
-        db.transaction(['conteudo'], 'readwrite').objectStore('conteudo').clear();
-    }
-
-    startSearchingAndSaving();
+    startAutomation();
 })();
