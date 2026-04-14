@@ -12,16 +12,23 @@ A Chrome extension to automate content downloads from the Perlego e-reader. An a
 1. Access your book at `https://ereader.perlego.com/1/book/(ID)`.
 2. Open the extension popup.
 3. **For ePUBs:** Click **ePUB (auto)**.
-4. **For PDFs:** Click **PDF (manual)**. 
-   * *Note: While the button is labeled manual, it now triggers a fully automated scrolling script.*
-5. A status bar will appear at the top of the page. The script will automatically scroll, wait for images to load, and save pages to the database.
-6. When finished (or to stop early), click **Stop & Save HTML**.
+4. **For PDFs:** Click **PDF (auto)**. 
+5. A status box will appear at the top of the webpage, and a green progress bar will appear in the extension menu. The script will automatically scroll, wait for images to load, and save pages to its internal database.
+6. When it reaches the final page, it will automatically compile and download your file. 
+
+*(Note: If you click away from the extension menu, it will close and the progress bar will hide. Don't worry! The script is still running perfectly in the background. If you reopen the menu, just wait a few seconds and the progress bar will reappear when it captures the next page.)*
 
 ## ✨ Key Automated Features
-- **Auto-Scrolling:** No more manual scrolling or "Page Down" needed. The script moves through the PDF automatically.
-- **Lazy-Load Detection:** The script detects Perlego's "loading" placeholders and high-res image status. It will wait until a page is perfect before capturing it.
-- **Anti-Bot Jitter:** Uses randomized delays (2.5s – 4.5s) to mimic human reading patterns, reducing the risk of being flagged as a bot.
-- **Continuity Mode:** If the browser tab crashes or freezes on a large book, simply refresh the page (F5) and click the button again. It will skip already-captured pages and resume where it left off.
+- **Auto-Scrolling:** No more manual scrolling or "Page Down" needed. The script moves through the PDF automatically and aggressively nudges the page if Perlego's Virtual DOM gets stuck.
+- **Lazy-Load Detection:** The script detects Perlego's "loading" placeholders and high-res image status. It will wait until a page is perfectly rendered before capturing it.
+- **Anti-Bot Jitter:** Uses randomized delays to mimic human reading patterns, reducing the risk of being flagged as a bot.
+- **Auto-Save Failsafe:** If Perlego completely fails to load a page after 30 attempts (~90 seconds), the script will automatically compile and download everything you have captured up to that point so you never lose your progress.
+
+## 🧠 Continuity Mode & Managing Books
+This extension uses a local database to remember what pages you have already captured. This is great for recovering from crashes, but **the script is "book-blind"**. It only remembers page numbers, not book titles.
+
+* **If your browser crashes or you trigger the Auto-Save Failsafe:** Do **NOT** clear anything. Just refresh the Perlego webpage (F5) and click **PDF (auto)** again. The script will silently skip all the pages you already downloaded and resume exactly where it left off!
+* **If you are starting a brand NEW book:** You **MUST** open the extension and click **Clear continuity** before starting. This wipes the memory of the old book so your new book starts cleanly at Page 1.
 
 ## 📄 Saving as PDF (Offline Use)
 The extension generates an `.html` file. To ensure images don't expire and to read offline:
@@ -31,16 +38,6 @@ The extension generates an `.html` file. To ensure images don't expire and to re
 4. Select **Save as PDF**.
 5. *Pro Tip:* If the file is extremely large, use **Firefox** to open the HTML and print, as it handles memory better than Chrome.
 
-## 🛠️ Maintenance & Reset
-If you want to start a book from the beginning or clear the saved progress, use the **Clear Continuity** button in the popup before starting a new capture.
-
 ## ☕ Support this Project
 If this tool helped you, consider supporting the development:
 [**Donate via PayPal**](https://www.paypal.com/donate/?hosted_button_id=USR242HKMCFG2)
-
----
-*Read the description of each format in the extension UI to avoid browser crashes.*
-
-<p align="start">
-<img src="https://github.com/GladistonXD/perlego-download/assets/50533550/bfed5fbc-2122-4ab8-b948-e64619ad9b7d" alt="Description" width="50%" height="50%"/>
-</p>
