@@ -9,11 +9,10 @@
         chrome.runtime.sendMessage({ type: 'progressUpdate', progress: progress });
     }
 
-    // --- NEW: Bulletproof Save Function ---
+    // --- Bulletproof Save Function ---
     async function compileAndSave(pageNumber = 'unknown') {
         stopSearch = true;
         
-        // Try to update UI if it still exists
         const msg = document.getElementById('automation-status');
         if (msg) msg.innerHTML = `<div style="color:black; font-weight:bold;">Compiling HTML... Please wait, DO NOT close tab.</div>`;
 
@@ -31,13 +30,12 @@
             
             finalHTML.push("</body></html>");
             
-            // Force Download
+            // Force Download directly through browser API
             const blob = new Blob([finalHTML.join('\n')], { type: 'text/html' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
             link.download = `perlego_export_upto_${pageNumber}_${Date.now()}.html`;
             
-            // Append to body temporarily (required by some browser security rules)
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -50,6 +48,7 @@
         }
     }
 
+    // --- Core Capture & Aggressive Scroll Logic ---
     async function procurarElementoEAutoRolar(pagina) {
         let content = document.querySelector(`div[data-chapterid='${pagina}']`);
         
@@ -90,7 +89,6 @@
     }
 
     function exibirStatusUI() {
-        // If it already exists, don't create it again
         if (document.getElementById('automation-status')) return;
 
         const msg = document.createElement('div');
@@ -99,10 +97,9 @@
         msg.innerHTML = `<div id="status-text">Starting Automation...</div>
                          <button id="stop-btn" style="margin-top:10px; cursor:pointer; background:#f44336; color:white; border:none; padding:5px 10px; border-radius:4px;">Stop & Save HTML</button>`;
         
-        // Attach to Document Element to prevent React from deleting it easily
         document.documentElement.appendChild(msg);
 
-        // Bind button to the new decoupled function
+        // Bind physical button to the decoupled save function
         document.getElementById('stop-btn').onclick = () => compileAndSave('manual_stop');
     }
 
@@ -127,7 +124,7 @@
             const db = await openIndexedDB();
             const lastSaved = await getLastProcessedIndex(db);
 
-            // Continuity: Skip to the next uncaptured page
+            // Continuity Check
             if (currentPage <= lastSaved) {
                 return processLoop(currentPage + 1);
             }
@@ -140,7 +137,7 @@
                 
                 if (retryCount > 30) {
                     console.error(`Page ${currentPage} completely stuck. Initiating auto-save...`);
-                    await compileAndSave(currentPage - 1); // Save up to the last successful page
+                    await compileAndSave(currentPage - 1); // Save up to last successful page
                     return;
                 }
 
